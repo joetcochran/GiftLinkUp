@@ -1,0 +1,1334 @@
+/*
+
+
+
+
+
+
+
+
+
+
+
+
+*/
+SET NUMERIC_ROUNDABORT OFF
+GO
+SET ANSI_PADDING, ANSI_WARNINGS, CONCAT_NULL_YIELDS_NULL, ARITHABORT, QUOTED_IDENTIFIER, ANSI_NULLS ON
+GO
+IF EXISTS (SELECT * FROM tempdb..sysobjects WHERE id=OBJECT_ID('tempdb..#tmpErrors')) DROP TABLE #tmpErrors
+GO
+CREATE TABLE #tmpErrors (Error int)
+GO
+SET XACT_ABORT ON
+GO
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE
+GO
+BEGIN TRANSACTION
+GO
+PRINT N'Creating [dbo].[xref_recipient_notify]'
+GO
+CREATE TABLE [dbo].[xref_recipient_notify]
+(
+[recipient_id] [int] NOT NULL,
+[notify_recipient_id] [int] NOT NULL
+)
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[del_xref_notify]'
+GO
+SET QUOTED_IDENTIFIER OFF
+GO
+SET ANSI_NULLS OFF
+GO
+
+
+CREATE PROCEDURE dbo.del_xref_notify
+
+@irecipient_id int,
+@inotify_recipient_id int
+
+AS
+
+delete from xref_recipient_notify where notify_recipient_id = @inotify_recipient_id and recipient_id = @irecipient_id
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[notification]'
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+CREATE TABLE [dbo].[notification]
+(
+[notification_id] [int] NOT NULL IDENTITY(1, 1),
+[recipient_id] [int] NOT NULL,
+[entered_by_id] [int] NOT NULL,
+[description] [varchar] (5000) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+[updated_dt] [datetime] NOT NULL,
+[gift_id] [int] NULL
+)
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[ins_notification]'
+GO
+SET ANSI_NULLS OFF
+GO
+
+
+CREATE PROCEDURE [dbo].[ins_notification] 
+
+@nrecipient_id int, 
+@nentered_by_id int,
+@vcdescription varchar(5000),
+@nnotification_id int output,
+@ngift_id int = NULL
+
+AS
+
+insert into notification (recipient_id, entered_by_id, description, updated_dt, gift_id)
+values (@nrecipient_id, @nentered_by_id, @vcdescription, getdate(), @ngift_id)
+
+select @nnotification_id = @@IDENTITY
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[gift]'
+GO
+SET ANSI_NULLS ON
+GO
+CREATE TABLE [dbo].[gift]
+(
+[gift_id] [int] NOT NULL IDENTITY(1, 1),
+[description] [varchar] (255) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+[recipient_id] [int] NOT NULL,
+[active] [bit] NOT NULL,
+[url] [varchar] (8000) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[processing_cd] [char] (3) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL CONSTRAINT [DF__gift__processing__03317E3D] DEFAULT ('NEW'),
+[desire_lvl] [tinyint] NULL,
+[updated_dt] [datetime] NOT NULL CONSTRAINT [[dbo]].[gift]]updated_dtDefault] DEFAULT (getdate()),
+[comment] [varchar] (8000) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL CONSTRAINT [[dbo]].[gift]]commentDefault] DEFAULT ('')
+)
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[del_gift]'
+GO
+SET ANSI_NULLS OFF
+GO
+
+
+
+CREATE PROCEDURE dbo.del_gift
+
+@ngift_id int
+
+AS
+declare @gift_description varchar(255)
+select @gift_description = description from gift where gift_id = @ngift_id
+
+--update any existing notifications
+update notification set 
+description = @gift_description + isnull(' - ' + description, ''),
+gift_id = null
+where gift_id = @ngift_id
+
+delete from gift where gift_id = @ngift_id
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[ins_gift]'
+GO
+SET QUOTED_IDENTIFIER OFF
+GO
+
+
+
+
+
+CREATE PROCEDURE dbo.ins_gift
+
+@nrecipient_id int,
+@vcdescription varchar(255),
+@vcurl varchar(8000) = NULL,
+@tidesire_lvl tinyint = null,
+@vccomment varchar(5000) = ''
+AS
+
+insert into gift (recipient_id, description, url, active, desire_lvl, comment)
+values (@nrecipient_id, @vcdescription, @vcurl, 1, @tidesire_lvl, @vccomment)
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[recipient]'
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+CREATE TABLE [dbo].[recipient]
+(
+[recipient_id] [int] NOT NULL IDENTITY(1, 1),
+[name] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[group_id] [int] NULL,
+[email] [varchar] (250) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[password] [varchar] (20) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[searchable_ind] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL CONSTRAINT [DF__recipient__searc__1367E606] DEFAULT ('Y'),
+[rss_guid] [uniqueidentifier] NOT NULL CONSTRAINT [[dbo]].[recipient]]rss_guidDefault] DEFAULT (newid()),
+[facebook_uid] [varchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[challenge_question_id] [int] NULL,
+[challenge_answer] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL,
+[private_list_password] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+)
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[ins_recipient]'
+GO
+SET ANSI_NULLS OFF
+GO
+
+
+CREATE PROCEDURE [dbo].[ins_recipient] 
+
+@vcname varchar(50), 
+@vcemail varchar(250), 
+@vcpassword varchar(20),
+@irecipient_id int output
+
+AS
+
+IF (@vcname is NULL and @vcemail is NULL) 
+   BEGIN
+	select @irecipient_id = NULL
+   END
+ELSE
+   BEGIN
+	insert into recipient (name, email, password,rss_guid) 
+	values (ltrim(rtrim(@vcname)),  ltrim(rtrim(upper(@vcemail))), @vcpassword, newid())
+	
+	select @irecipient_id = @@IDENTITY
+   END
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_gifts_for_recipient]'
+GO
+SET QUOTED_IDENTIFIER OFF
+GO
+
+
+
+CREATE PROCEDURE [dbo].[sel_gifts_for_recipient] 
+@irecipient_id int,
+@bunpurchased_only bit = 0
+
+AS
+
+select	g.gift_id, 
+		g.description, 
+		isnull(g.desire_lvl,0) as 'desire_lvl',
+		isnull(g.url,'') as 'url', 
+		r.name as 'purchaser', 
+		isnull(r.name,0) as 'purchaser_cd',
+		comment from 
+	
+gift g
+	left outer join [notification] n on n.gift_id = g.gift_id
+	left outer join recipient r on r.recipient_id = n.entered_by_id
+where g.recipient_id = @irecipient_id
+and 
+((@bunpurchased_only = 0)
+or
+(@bunpurchased_only = 1 and
+not exists 
+	(select * from [notification] where gift_id = g.gift_id)
+)
+)
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_notifications_by_recipient]'
+GO
+
+
+
+
+
+
+
+CREATE PROCEDURE [dbo].[sel_notifications_by_recipient] 
+
+@nrecipient_id int
+
+AS
+
+
+select n.updated_dt, isnull(g.description + ' - ', '') + isnull(n.description, '')
+ as 'notification_desc'
+from notification n
+left outer join gift g on g.gift_id = n.gift_id
+where n.recipient_id = @nrecipient_id
+and n.updated_dt > dateadd(d, -60, getdate())
+order by n.updated_dt desc
+
+
+
+
+
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[xref_recipient_proxy]'
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+CREATE TABLE [dbo].[xref_recipient_proxy]
+(
+[recipient_id] [int] NOT NULL,
+[proxy_for_id] [int] NOT NULL
+)
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_peer_managers]'
+GO
+SET QUOTED_IDENTIFIER OFF
+GO
+SET ANSI_NULLS OFF
+GO
+
+
+CREATE PROCEDURE dbo.sel_peer_managers
+
+@nrecipient_id int
+
+AS
+
+select * from recipient where recipient_id in
+(select distinct x_outer.proxy_for_id from xref_recipient_proxy x_inner, xref_recipient_proxy x_outer
+where x_inner.proxy_for_id = @nrecipient_id
+and x_inner.recipient_id = x_outer.recipient_id
+and x_outer.proxy_for_id <> @nrecipient_id)
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_proxies_for_recipient]'
+GO
+
+
+CREATE PROCEDURE dbo.sel_proxies_for_recipient
+@irecipient_id int
+AS
+select r.name, r.recipient_id from
+xref_recipient_proxy x, recipient r
+where x.proxy_for_id = @irecipient_id
+and x.recipient_id = r.recipient_id
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[ref_challenge_question]'
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+CREATE TABLE [dbo].[ref_challenge_question]
+(
+[challenge_question_id] [int] NOT NULL IDENTITY(1, 1),
+[question] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL
+)
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_recipient_by_email]'
+GO
+SET QUOTED_IDENTIFIER OFF
+GO
+SET ANSI_NULLS OFF
+GO
+
+
+CREATE PROCEDURE [dbo].[sel_recipient_by_email] 
+@vcemail varchar(250)
+
+AS
+
+select *, rcq.question from recipient r
+left outer join ref_challenge_question rcq on r.challenge_question_id = rcq.challenge_question_id
+where ltrim(rtrim(upper(email))) = ltrim(rtrim(upper(@vcemail)))
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_recipient_by_id]'
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+
+CREATE PROCEDURE [dbo].[sel_recipient_by_id]
+@irecipient_id int
+
+AS
+
+select * from recipient where recipient_id = @irecipient_id
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[ins_xref_recipient_notify]'
+GO
+SET QUOTED_IDENTIFIER OFF
+GO
+
+
+CREATE PROCEDURE [dbo].[ins_xref_recipient_notify]
+
+@irecipient_id int,
+@inotify_recipient_id int
+
+
+ AS
+
+
+
+create table #proxies (recipient_id int)
+	insert into #proxies 
+		select xp.recipient_id from 
+		xref_recipient_proxy xp
+		where proxy_for_id = @irecipient_id
+		and not exists (select * from xref_recipient_notify xn
+						where xn.recipient_id = xp.recipient_id
+						and xn.notify_recipient_id = @inotify_recipient_id)
+
+IF NOT EXISTS (SELECT * FROM xref_recipient_notify where
+				recipient_id = @irecipient_id
+				and notify_recipient_id = @inotify_recipient_id)
+   BEGIN
+	insert into xref_recipient_notify (recipient_id, notify_recipient_id)
+	values (@irecipient_id, @inotify_recipient_id)
+   END
+
+	insert into xref_recipient_notify (recipient_id, notify_recipient_id)
+	select p.recipient_id, @inotify_recipient_id
+	from #proxies p 
+
+drop table #proxies
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_gifts_for_others_rss]'
+GO
+
+
+
+
+
+
+
+
+
+
+
+CREATE PROCEDURE dbo.sel_gifts_for_others_rss
+@guid uniqueidentifier
+
+AS
+create table #results (type char(1), name varchar(1000), description varchar(1000), url varchar(1000), updated_dt datetime)
+
+
+insert into #results
+select 'G' as 'type', r_to.name, g.description, g.url, g.updated_dt 
+from gift g, xref_recipient_notify x, recipient r_from, recipient r_to
+where r_from.rss_guid = @guid
+and r_from.recipient_id = x.notify_recipient_id
+and r_to.recipient_id = x.recipient_id
+and r_to.recipient_id = g.recipient_id
+
+
+insert into #results 
+select  'N' as 'type', r_to.name, n.description + ' (' + isnull(g.description,'') + ')' as 'description', g.url, n.updated_dt as 'updated_dt'
+from notification n
+INNER JOIN xref_recipient_notify x on x.recipient_id = n.recipient_id
+INNER JOIN recipient r_to on x.recipient_id = r_to.recipient_id
+INNER JOIN recipient r_me on r_me.recipient_id = x.notify_recipient_id
+LEFT OUTER JOIN gift g on g.gift_id = n.gift_id
+where r_me.rss_guid = @guid
+select top 20 * from #results order by updated_dt desc
+drop table #results
+
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_targets_for_recipient]'
+GO
+
+
+
+
+CREATE PROCEDURE [dbo].[sel_targets_for_recipient]
+@irecipient_id int
+AS
+
+select notify_recips.name, notify_recips.recipient_id, notify_recips.email, gift_for.name as 'recipient_name'
+from xref_recipient_notify x, recipient gift_for, recipient notify_recips
+where x.recipient_id = @irecipient_id
+and x.recipient_id = gift_for.recipient_id
+and x.notify_recipient_id = notify_recips.recipient_id
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[upd_gift_desire_lvl]'
+GO
+
+
+CREATE PROCEDURE dbo.upd_gift_desire_lvl
+
+@ngift_id int,
+@tidesire_lvl tinyint,
+@nupdating_recipient_id int
+
+AS
+
+declare @ngift_for_recipient_id int
+
+select @ngift_for_recipient_id = recipient_id from gift where gift_id = @ngift_id
+
+
+if @nupdating_recipient_id = @ngift_for_recipient_id OR exists (select *
+from xref_recipient_proxy
+where proxy_for_id = @nupdating_recipient_id
+and recipient_id = @ngift_for_recipient_id)
+update gift set desire_lvl = @tidesire_lvl where gift_id = @ngift_id
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[upd_recipient]'
+GO
+
+
+CREATE PROCEDURE [dbo].[upd_recipient] 
+
+@nrecipient_id int,
+@vcname varchar(50),
+@vcemail varchar(250),
+@csearchable_ind char(1),
+@vcpassword varchar(20) = NULL,
+@nchallenge_question_id int,
+@vcchallenge_answer varchar(50),
+@vcprivate_list_password varchar(50)
+
+AS
+
+update recipient set 
+	name = @vcname, 
+	email = @vcemail, 
+	searchable_ind = @csearchable_ind,
+	challenge_question_id = @nchallenge_question_id,
+	challenge_answer = @vcchallenge_answer,
+	private_list_password = @vcprivate_list_password
+where recipient_id = @nrecipient_id
+
+IF @vcpassword is not null
+   BEGIN
+	update recipient set 
+		password = @vcpassword
+	where recipient_id = @nrecipient_id
+   END
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[ins_xref_recipient_proxy]'
+GO
+SET QUOTED_IDENTIFIER ON
+GO
+SET ANSI_NULLS ON
+GO
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 06/06/2007 16:47:04 ******/
+CREATE PROCEDURE [dbo].[ins_xref_recipient_proxy]
+
+@irecipient_id int,
+@iproxy_for_id int
+
+
+ AS
+
+insert into xref_recipient_proxy (recipient_id, proxy_for_id)
+values (@irecipient_id, @iproxy_for_id)
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_gifts_for_recipient_guid]'
+GO
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 09/21/2007 20:43:37 ******/
+CREATE PROCEDURE [dbo].sel_gifts_for_recipient_guid
+@guid uniqueidentifier
+AS
+
+
+select g.*
+from gift g, recipient r 
+where g.recipient_id = r.recipient_id
+and r.rss_guid = @guid
+
+
+
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[recipient_request]'
+GO
+CREATE TABLE [dbo].[recipient_request]
+(
+[request_id] [int] NOT NULL IDENTITY(1, 1),
+[request_guid] [uniqueidentifier] NOT NULL,
+[request_typ] [char] (1) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+[from_recipient_id] [int] NOT NULL,
+[to_recipient_id] [int] NOT NULL,
+[requested_dt] [datetime] NOT NULL CONSTRAINT [DF_recipient_request_requested_dt] DEFAULT (getdate()),
+[additional_info] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+)
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_recipient_request]'
+GO
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 10/08/2007 15:12:38 ******/
+CREATE PROCEDURE [dbo].[sel_recipient_request]
+@request_guid uniqueidentifier
+
+AS
+BEGIN
+select * from recipient_request where request_guid = @request_guid
+
+END
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_viewable_lists_by_recipient]'
+GO
+
+
+
+
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 09/21/2007 11:05:09 ******/
+CREATE PROCEDURE [dbo].[sel_viewable_lists_by_recipient]
+	-- Add the parameters for the stored procedure here
+@irecipient_id int,
+@omit_proxies bit = 0
+AS
+select r.name, r.recipient_id, x.*, isnull(r.facebook_uid, '') as 'facebook_uid'
+from xref_recipient_notify x, recipient r
+where x.notify_recipient_id = @irecipient_id
+and r.recipient_id = x.recipient_id
+and
+((@omit_proxies = 1
+and x.recipient_id not in (select recipient_id from xref_recipient_proxy xrp
+							where xrp.proxy_for_id = @irecipient_id))
+or
+ (@omit_proxies = 0)
+)
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[upd_gift_comment]'
+GO
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 03/28/2008 14:40:22 ******/
+CREATE PROCEDURE [dbo].upd_gift_comment
+	-- Add the parameters for the stored procedure here
+	@igift_id int,
+	@vccomment varchar(8000)
+
+AS
+
+
+
+	UPDATE gift set comment = @vccomment
+	WHERE gift_id = @igift_id
+
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_recipient_id_by_facebook_uid]'
+GO
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 04/14/2008 11:08:32 ******/
+CREATE PROCEDURE [dbo].sel_recipient_id_by_facebook_uid
+
+@facebook_uid varchar(100)
+AS
+select * from recipient where ltrim(rtrim(upper(facebook_uid))) = ltrim(rtrim(upper(@facebook_uid)))
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[upd_recipient_facebook_uid]'
+GO
+
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 04/14/2008 10:57:28 ******/
+CREATE PROCEDURE [dbo].upd_recipient_facebook_uid
+
+@facebook_uid varchar(100),
+@email varchar(100)
+
+AS
+
+update recipient set facebook_uid = @facebook_uid
+where ltrim(rtrim(upper(email))) = ltrim(rtrim(upper(@email)))
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_gifts_for_recipient_rss]'
+GO
+
+
+CREATE PROCEDURE [dbo].[sel_gifts_for_recipient_rss]
+@guid uniqueidentifier 
+AS
+select	top 20 g.gift_id, 
+		g.description, 
+		isnull(g.desire_lvl,0) as 'desire_lvl',
+		isnull(g.url,'') as 'url', 
+		comment,
+		g.updated_dt from 	
+		gift g, recipient r
+where g.recipient_id = r.recipient_id
+and r.rss_guid = @guid
+order by updated_dt desc
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_challenge_questions]'
+GO
+/****** Object:  StoredProcedure [dbo].[sel_challenge_questions]    Script Date: 07/17/2008 10:38:28 ******/
+CREATE PROCEDURE [dbo].[sel_challenge_questions]
+AS
+select * from ref_challenge_question
+GO
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[activity_log]'
+GO
+CREATE TABLE [dbo].[activity_log]
+(
+[activity_id] [int] NOT NULL IDENTITY(1, 1),
+[activity_dt] [datetime] NOT NULL,
+[user_id] [int] NOT NULL,
+[description] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL
+)
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating primary key [activity_log_PrimaryKey] on [dbo].[activity_log]'
+GO
+ALTER TABLE [dbo].[activity_log] ADD CONSTRAINT [activity_log_PrimaryKey] PRIMARY KEY CLUSTERED  ([activity_id])
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[ins_activity_log]'
+GO
+CREATE PROCEDURE dbo.ins_activity_log
+
+	@user_id int,
+	@vcdescription varchar(50)
+AS
+BEGIN
+insert into activity_log (activity_dt, user_id, description)
+values (getdate(), @user_id, @vcdescription)
+END
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[upd_gift]'
+GO
+CREATE PROCEDURE [dbo].[upd_gift]
+
+@ngift_id int,
+@nrecipient_id int, 
+@vcdescription varchar(255), 
+@vcurl varchar(8000) = NULL 
+
+ AS
+
+update gift set description = @vcdescription,
+				url = @vcurl,
+				updated_dt = getdate()
+where gift_id = @ngift_id
+and recipient_id = @nrecipient_id
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[ins_xref_recipient_notify_fb]'
+GO
+
+
+CREATE PROCEDURE [dbo].[ins_xref_recipient_notify_fb]
+
+@vcfacebook_uid varchar(100),
+@inotify_recipient_id int
+
+
+ AS
+
+declare @irecipient_id int
+
+select	@irecipient_id = recipient_id 
+from	recipient 
+where	facebook_uid = @vcfacebook_uid
+
+IF @irecipient_id is not null
+   BEGIN
+	create table #proxies (recipient_id int)
+	insert into #proxies 
+		select xp.recipient_id from 
+		xref_recipient_proxy xp
+		where proxy_for_id = @irecipient_id
+		and not exists (select * from xref_recipient_notify xn
+						where xn.recipient_id = xp.recipient_id
+						and xn.notify_recipient_id = @inotify_recipient_id)
+
+	IF NOT EXISTS (SELECT * FROM xref_recipient_notify where
+					recipient_id = @irecipient_id
+					and notify_recipient_id = @inotify_recipient_id)
+	   BEGIN
+		insert into xref_recipient_notify (recipient_id, notify_recipient_id)
+		values (@irecipient_id, @inotify_recipient_id)
+	   END
+
+		insert into xref_recipient_notify (recipient_id, notify_recipient_id)
+		select p.recipient_id, @inotify_recipient_id
+		from #proxies p 
+
+	drop table #proxies
+   END
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[email_block]'
+GO
+CREATE TABLE [dbo].[email_block]
+(
+[email_block_id] [int] NOT NULL IDENTITY(1, 1),
+[email_address] [varchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+[block_requested_dt] [datetime] NOT NULL
+)
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating primary key [PK_email_block] on [dbo].[email_block]'
+GO
+ALTER TABLE [dbo].[email_block] ADD CONSTRAINT [PK_email_block] PRIMARY KEY CLUSTERED  ([email_block_id])
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[ins_email_block]'
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+CREATE PROCEDURE [dbo].[ins_email_block]
+	@vcemail varchar(100)
+AS
+BEGIN
+	
+	SELECT @vcemail = ltrim(rtrim(upper(@vcemail)))
+
+	IF NOT EXISTS (SELECT * FROM email_block
+					WHERE ltrim(rtrim(upper(email_address))) = @vcemail)
+	   BEGIN
+			INSERT INTO email_block
+			(email_address, block_requested_dt)
+			VALUES
+			(@vcemail, getdate()) 
+		
+	   END
+
+END
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[fuse_action]'
+GO
+CREATE TABLE [dbo].[fuse_action]
+(
+[fuse_action_id] [int] NOT NULL IDENTITY(1, 1),
+[fuse_key] [uniqueidentifier] NOT NULL,
+[action_cd] [char] (5) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+[target_email] [varchar] (100) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL,
+[requester_id] [int] NOT NULL,
+[requested_dt] [datetime] NOT NULL,
+[tag] [varchar] (50) COLLATE SQL_Latin1_General_CP1_CI_AS NULL
+)
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating primary key [PK_fuse_action] on [dbo].[fuse_action]'
+GO
+ALTER TABLE [dbo].[fuse_action] ADD CONSTRAINT [PK_fuse_action] PRIMARY KEY CLUSTERED  ([fuse_action_id])
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[del_fuse_action]'
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+CREATE PROCEDURE [dbo].[del_fuse_action]
+	-- Add the parameters for the stored procedure here
+	@ifuse_action_id int
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+	DELETE from fuse_action where fuse_action_id = @ifuse_action_id
+
+END
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[ins_recipient_request]'
+GO
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 10/08/2007 15:12:01 ******/
+CREATE PROCEDURE [dbo].ins_recipient_request
+@crequest_typ	char(1),
+@ifrom_recipient_id	int,
+@ito_recipient_id	int,
+@vcadditional_info varchar(50),
+@request_guid uniqueidentifier output
+
+AS
+BEGIN
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+	select @request_guid = newid()
+
+    -- Insert statements for procedure here
+	insert into recipient_request
+	(request_typ, from_recipient_id, to_recipient_id, request_guid, additional_info)
+	values	
+	(@crequest_typ, @ifrom_recipient_id, @ito_recipient_id, @request_guid, @vcadditional_info)
+
+
+
+END
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[ins_fuse_action]'
+GO
+
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+CREATE PROCEDURE [dbo].[ins_fuse_action]
+
+@caction_cd char(5), 
+@vctarget_email varchar(100),
+@nrequester_id int,
+@fuse_key uniqueidentifier output,
+@tag varchar(50) = NULL
+AS
+BEGIN
+	SET NOCOUNT ON;
+
+	
+	
+
+	IF NOT EXISTS (SELECT * FROM fuse_action 
+				WHERE action_cd = @caction_cd
+				AND target_email = @vctarget_email)	   
+	   BEGIN
+
+		IF NOT EXISTS (SELECT * FROM email_block
+						WHERE ltrim(rtrim(upper(email_address))) = ltrim(rtrim(upper(@vctarget_email))))
+		   BEGIN
+			SELECT @fuse_key = newid()
+			INSERT INTO fuse_action
+			(fuse_key, action_cd, target_email, requester_id, requested_dt, tag)
+			VALUES
+			(@fuse_key, @caction_cd, @vctarget_email, @nrequester_id, getdate(), @tag)
+
+		   END
+	   END
+	
+END
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[del_proxy]'
+GO
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 10/08/2007 15:10:30 ******/
+CREATE PROCEDURE [dbo].del_proxy
+-- Add the parameters for the stored procedure here
+	@irecipient_id int,
+	@iaction_performed_by_id int
+AS
+
+	-- SET NOCOUNT ON added to prevent extra result sets from
+	-- interfering with SELECT statements.
+	SET NOCOUNT ON;
+
+    -- Insert statements for procedure here
+	if exists (select * from xref_recipient_proxy
+				where recipient_id = @irecipient_id
+				and proxy_for_id <> @iaction_performed_by_id)
+	   BEGIN
+		--This child is under someone else's management. Only delete the
+		--xref proxy row
+		delete from xref_recipient_proxy where recipient_id = @irecipient_id
+		and proxy_for_id = @iaction_performed_by_id
+	   END
+	ELSE
+	   BEGIN
+		IF exists (select * from recipient where recipient_id = @irecipient_id
+					and email is NULL)
+		   BEGIN
+			--This child is under this person's management ONLY. Delete recipient
+			--row and all child rows
+
+			delete from xref_recipient_proxy where recipient_id = @irecipient_id
+			delete from xref_recipient_notify where recipient_id = @irecipient_id
+			delete from notification where recipient_id = @irecipient_id
+			delete from gift where recipient_id = @irecipient_id
+			delete from recipient where recipient_id = @irecipient_id
+		   END
+	   END
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_fuse_action]'
+GO
+-- =============================================
+-- Author:		<Author,,Name>
+-- Create date: <Create Date,,>
+-- Description:	<Description,,>
+-- =============================================
+CREATE PROCEDURE [dbo].[sel_fuse_action]
+	-- Add the parameters for the stored procedure here
+	@fuse_key uniqueidentifier
+
+AS
+BEGIN
+	SELECT * FROM fuse_action
+	WHERE fuse_key = @fuse_key
+END
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_email_block]'
+GO
+CREATE PROCEDURE [dbo].[sel_email_block]
+	-- Add the parameters for the stored procedure here
+	@email varchar(100),
+	@result char(1) output
+AS
+BEGIN
+	SELECT @result = 'N'
+
+	IF EXISTS (SELECT * FROM email_block 
+				WHERE ltrim(rtrim(upper(@email))) = ltrim(rtrim(upper(email_address)))
+			  )
+	   BEGIN
+		SELECT @result = 'Y'
+	   END
+	
+END
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[user_session]'
+GO
+CREATE TABLE [dbo].[user_session]
+(
+[id] [uniqueidentifier] NOT NULL CONSTRAINT [user_sessionidDefault] DEFAULT (newid()),
+[last_used] [datetime] NOT NULL CONSTRAINT [user_sessionlast_usedDefault] DEFAULT (getdate()),
+[user_id] [int] NULL
+)
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating primary key [user_session_PrimaryKey] on [dbo].[user_session]'
+GO
+ALTER TABLE [dbo].[user_session] ADD CONSTRAINT [user_session_PrimaryKey] PRIMARY KEY CLUSTERED  ([id])
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[upd_user_session]'
+GO
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 12/13/2010 20:50:25 ******/
+CREATE PROCEDURE [dbo].upd_user_session
+@id uniqueidentifier
+AS
+update user_session set last_used = getdate() where id = @id
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[ins_user_session]'
+GO
+
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 12/13/2010 20:49:06 ******/
+CREATE PROCEDURE [dbo].ins_user_session
+@user_id int,
+@id uniqueidentifier output
+AS
+
+select @id = newid()
+insert into user_session values (@id, getdate(), @user_id)
+
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_user_session]'
+GO
+
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 12/13/2010 20:51:05 ******/
+CREATE PROCEDURE [dbo].sel_user_session
+@id uniqueidentifier
+AS
+select * from user_session where id = @id and dateadd(n, 30, last_used)  > getdate()
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_fuse_action_oustanding]'
+GO
+CREATE PROCEDURE [dbo].[sel_fuse_action_oustanding]
+	-- Add the parameters for the stored procedure here
+@email varchar(100), 
+	@action_cd char(5), 
+@tag varchar(50) = NULL,
+@result char(1) output	
+AS
+BEGIN
+	SELECT @result = 'N'
+	IF EXISTS (SELECT * FROM fuse_action
+				WHERE action_cd = @action_cd
+				AND ltrim(rtrim(upper(@email))) = ltrim(rtrim(upper(target_email)))
+				AND (	(@tag IS NULL and tag is NULL)
+						OR
+						(@tag IS NOT NULL and @tag = tag)
+					)
+			)
+	   BEGIN
+		SELECT @result = 'Y'
+	   END
+END
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_gift_owned_by_recipient]'
+GO
+
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 12/16/2010 08:56:08 ******/
+CREATE PROCEDURE [dbo].sel_gift_owned_by_recipient
+@igift_id int,
+@irecipient_id int
+
+AS
+select * from gift
+where gift_id = @igift_id and recipient_id = @irecipient_id
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[sel_is_gift_viewable]'
+GO
+
+/****** Object:  StoredProcedure [dbo].[NewStoredProcedure]    Script Date: 12/16/2010 08:50:01 ******/
+CREATE PROCEDURE [dbo].sel_is_gift_viewable
+@irecipient_id int,
+@igift_id int
+AS
+declare @count int
+select count(*) 
+from xref_recipient_notify x, recipient r, gift g
+where x.notify_recipient_id = @irecipient_id
+and r.recipient_id = x.recipient_id
+and g.gift_id = @igift_id
+and (g.recipient_id = r.recipient_id or g.recipient_id = x.recipient_id)
+
+
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+PRINT N'Creating [dbo].[group]'
+GO
+CREATE TABLE [dbo].[group]
+(
+[group_id] [int] NOT NULL IDENTITY(1, 1),
+[description] [varchar] (250) COLLATE SQL_Latin1_General_CP1_CI_AS NOT NULL
+)
+GO
+IF @@ERROR<>0 AND @@TRANCOUNT>0 ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT=0 BEGIN INSERT INTO #tmpErrors (Error) SELECT 1 BEGIN TRANSACTION END
+GO
+IF EXISTS (SELECT * FROM #tmpErrors) ROLLBACK TRANSACTION
+GO
+IF @@TRANCOUNT>0 BEGIN
+PRINT 'The database update succeeded'
+COMMIT TRANSACTION
+END
+ELSE PRINT 'The database update failed'
+GO
+DROP TABLE #tmpErrors
+GO

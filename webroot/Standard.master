@@ -1,0 +1,136 @@
+﻿<%@ Master Language="VB" CodeFile="Standard.master.vb" Inherits="Standard" %>
+
+<%@ Register Assembly="System.Web.Extensions, Version=1.0.61025.0, Culture=neutral, PublicKeyToken=31bf3856ad364e35"
+    Namespace="System.Web.UI" TagPrefix="asp" %>
+<%@ Register Assembly="AjaxControlToolkit" Namespace="AjaxControlToolkit" TagPrefix="ajaxToolkit" %>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head id="Head1" runat="server">
+    <link rel="stylesheet" href="StyleSheet.css" />
+    <title>GiftLinkUp.com</title>
+</head>
+<body runat="server" id="serverBody">
+    <form id="form1" runat="server">
+    <asp:Panel CssClass="popupMenu" ID="PopupMenu" runat="server">
+        <div style="border: 2px outset black; padding: 4px;">
+            <table width="230" cellspacing="4">
+                <tr>
+                    <td>
+                        <asp:Image runat="server" ID="imgrss" ImageUrl="~/images/rss.jpg" />
+                        <asp:LinkButton ID="lbGenRSS_O" runat="server" CommandName="GenRSS_O" Font-Bold="true"
+                            Text="Notifications and Gift Postings" />
+                    </td>
+                </tr>
+                <tr>
+                    <td>
+                        <asp:Image runat="server" ID="Image1" ImageUrl="~/images/rss.jpg" />
+                        <asp:LinkButton ID="lbGenRSS_M" runat="server" CommandName="GenRSS_M" Font-Bold="true"
+                            Text="Gifts on My List" />
+                    </td>
+                </tr>
+            </table>
+        </div>
+    </asp:Panel>
+    <center>
+        <table id="Table_01" width="775" border="0" cellpadding="0" cellspacing="0">
+            <tr>
+                <td>
+                    <a href="main.aspx" ><img border="0" src="images/dn2_04.jpg" width="775" height="54" alt=""></a>
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <asp:Image runat="Server" ID="imgHeader" ImageUrl="images/dn2_05.jpg" Width="775"
+                        Height="150" />
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <asp:ScriptManager ID="ScriptManager1" runat="server">
+                    </asp:ScriptManager>
+                    <ajaxToolkit:RoundedCornersExtender runat="server" ID="rc1" BorderColor="black" Color="#c8c8c8"
+                        TargetControlID="pn1" Corners="All" Radius="2" />
+                    <ajaxToolkit:RoundedCornersExtender runat="server" ID="rc2" BorderColor="black" Color="#c8c8c8"
+                        TargetControlID="pn2" Radius="2" />
+                    <ajaxToolkit:RoundedCornersExtender runat="server" ID="rc3" BorderColor="black" Color="#c8c8c8"
+                        TargetControlID="pn3" Radius="2" />
+                    <ajaxToolkit:RoundedCornersExtender runat="server" ID="rc4" BorderColor="black" Color="#c8c8c8"
+                        TargetControlID="pn4" Radius="2" />
+                    <ajaxToolkit:RoundedCornersExtender runat="server" ID="rc5" BorderColor="black" Color="#c8c8c8"
+                        TargetControlID="pn5" Radius="2" />
+                    <table width="100%" cellpadding="5">
+                        <tr>
+                            <td align="left" width="20%">
+                                <asp:Panel Height="24" HorizontalAlign="center" Width="90%" runat="server" ID="pn1"
+                                    BackColor="#c8c8c8">
+                                    <asp:LinkButton Font-Bold="true" ID="lbMainWishListPage" runat="server" ToolTip="View all wish lists">View Wish Lists</asp:LinkButton>
+                                </asp:Panel>
+                            </td>
+                            <td align="center" valign="middle" width="20%">
+                                <asp:Panel Height="24" Width="90%" runat="server" ID="pn2" BackColor="#c8c8c8">
+                                    <asp:LinkButton Font-Bold="true" ID="lbFAQ" runat="server" ToolTip="Find answers to Frequently Asked Questions to help you get started">FAQ</asp:LinkButton>
+                                </asp:Panel>
+                            </td>
+                            <td align="center" width="20%">
+                                <asp:Panel Width="90%" Height="24" runat="server" ID="pn3" BackColor="#c8c8c8">
+                                    <asp:LinkButton Font-Bold="true" ID="lbAccountOptions" runat="server" ToolTip="Manage your GiftLinkUp.com Account">Account Options</asp:LinkButton>
+                                </asp:Panel>
+                            </td>
+                            <td align="center" width="20%">
+                                <asp:Panel HorizontalAlign="center" Height="24" Width="90%" runat="server" ID="pn4"
+                                    BackColor="#c8c8c8">
+                                    <asp:Image runat="server" ImageAlign="middle" ID="imgRSSIcon" ImageUrl="~/images/rss-icon.jpg" />&nbsp;<b>RSS</b>
+                                </asp:Panel>
+                            </td>
+                            <td align="center" width="20%">
+                                <asp:Panel Height="24" HorizontalAlign="center" Width="90%" runat="server" ID="pn5"
+                                    BackColor="#c8c8c8">
+                                    <asp:LinkButton Font-Bold="true" ID="lbLogout" runat="server" ToolTip="Logout of GiftLinkUp.com">Logout</asp:LinkButton>
+                                </asp:Panel>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+            </tr>
+            <tr>
+                <td valign="top">
+                    <ajaxToolkit:HoverMenuExtender ID="hme2" runat="Server" HoverCssClass="popupHover"
+                        PopupControlID="PopupMenu" PopupPosition="Bottom" TargetControlID="pn4" PopDelay="25" />
+                    
+                            <asp:ContentPlaceHolder ID="Main" runat="server">
+                            </asp:ContentPlaceHolder>
+                    
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <img src="images/dn2_13_01.jpg" width="775" height="18" alt="">
+                </td>
+            </tr>
+            <tr>
+                <td>
+                    <table width="100%">
+                        <tr>
+                            <td align="left" width="33%">
+                                <asp:LinkButton runat="server" Font-Bold="true" ID="lbBlog" Font-Size="Small">Site Blog</asp:LinkButton>
+                            </td>
+                            <td align="center" width="33%">
+                                <asp:LinkButton runat="server" ID="lbAdmin" Font-Bold="true" Font-Size="Small" Visible="false">Admin</asp:LinkButton>
+                            </td>
+                            <td align="right" width="33%">
+                                <asp:LinkButton runat="server" Font-Bold="true" ID="lbComments" Font-Size="Small">Comments/Questions?</asp:LinkButton>
+                            </td>
+                        </tr>
+                    </table>
+                </td>
+                <tr>
+                    <td>
+                        <img src="images/dn2_13_02.jpg" width="775" height="56" alt="">
+                    </td>
+                </tr>
+        </table>
+        <!-- End ImageReady Slices -->
+    </center>
+    </form>
+</body>
+</html>
